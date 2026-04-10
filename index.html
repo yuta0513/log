@@ -194,7 +194,7 @@
     </div>
     <div class="input-row">
       <textarea id="input" placeholder="メモ" rows="1" autofocus autocomplete="off" autocorrect="off"></textarea>
-      <button class="send-btn" id="sendBtn" aria-label="送信">
+      <button class="send-btn" id="sendBtn" type="button" aria-label="送信">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.5"/>
           <path d="M12 16.5V7.5M8.5 11L12 7.5L15.5 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -337,33 +337,24 @@
       sendBtn.classList.toggle('active', inputEl.value.trim().length > 0);
     });
 
-    let submitting = false;
     async function submit() {
-      if (submitting) return;
+      if (sendBtn.disabled) return;
       const text = inputEl.value.trim();
       if (!text) return;
 
-      submitting = true;
+      sendBtn.disabled = true;
       inputEl.value = '';
       inputEl.style.height = 'auto';
       sendBtn.classList.remove('active');
 
-      // Optimistic render
-      const temp = { id: '_tmp_' + Date.now(), text, ts: new Date().toISOString() };
-      entries.push(temp);
-      renderAll();
-
       try {
-        const saved = await addEntry(text);
-        const idx = entries.findIndex(e => e.id === temp.id);
-        if (idx !== -1) entries[idx] = saved;
-        localStorage.setItem(CACHE_KEY, JSON.stringify(entries));
-        renderAll();
+        await addEntry(text);
+        await sync();
       } catch (e) {
         syncStatus.textContent = '送信失敗（オフライン）';
         console.error(e);
       } finally {
-        submitting = false;
+        sendBtn.disabled = false;
       }
     }
 
