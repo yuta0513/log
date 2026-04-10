@@ -337,18 +337,15 @@
       sendBtn.classList.toggle('active', inputEl.value.trim().length > 0);
     });
 
+    let submitting = false;
     async function submit() {
+      if (submitting) return;
       const text = inputEl.value.trim();
       if (!text) return;
 
-      // 確実にクリア
+      submitting = true;
       inputEl.value = '';
-      inputEl.blur();
-      requestAnimationFrame(() => {
-        inputEl.value = '';
-        inputEl.style.height = 'auto';
-        inputEl.focus();
-      });
+      inputEl.style.height = 'auto';
       sendBtn.classList.remove('active');
 
       // Optimistic render
@@ -358,7 +355,6 @@
 
       try {
         const saved = await addEntry(text);
-        // Replace temp with real entry
         const idx = entries.findIndex(e => e.id === temp.id);
         if (idx !== -1) entries[idx] = saved;
         localStorage.setItem(CACHE_KEY, JSON.stringify(entries));
@@ -366,6 +362,8 @@
       } catch (e) {
         syncStatus.textContent = '送信失敗（オフライン）';
         console.error(e);
+      } finally {
+        submitting = false;
       }
     }
 
