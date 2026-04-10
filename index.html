@@ -188,7 +188,7 @@
       <button class="action-btn clear-btn" id="clearBtn">クリア</button>
     </div>
     <div class="input-row">
-      <textarea id="input" placeholder="メモ" rows="1"></textarea>
+      <textarea id="input" placeholder="メモ" rows="1" autofocus>
       <button class="send-btn" id="sendBtn" aria-label="送信">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.5"/>
@@ -303,7 +303,7 @@
 
     sendBtn.addEventListener('click', submit);
     inputEl.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         submit();
       }
