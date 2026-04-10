@@ -426,8 +426,8 @@
         const writable = await obsidianFileHandle.createWritable();
         await writable.write(existing.trimEnd() + '\n\n' + newLines + '\n');
         await writable.close();
-        showToast('Obsidianに書き出しました');
-        clearBtn.click();
+        clearAll();
+        showToast('書き出しました。クリアしました');
       } catch (e) {
         if (e.name !== 'AbortError') showToast('書き出し失敗');
       }
