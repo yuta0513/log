@@ -391,11 +391,9 @@
       if (entries.length === 0) { showToast('ログがありません'); return; }
       const lines = entries.map(e => `- [${formatTime(e.ts)}] ${e.text}`).join('\n');
       const url = `obsidian://new?vault=${encodeURIComponent(OBS_VAULT)}&file=${encodeURIComponent(OBS_FILE)}&content=${encodeURIComponent('\n' + lines + '\n')}&append=true`;
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = url;
-      document.body.appendChild(iframe);
-      setTimeout(() => iframe.remove(), 1000);
+      const a = document.createElement('a');
+      a.href = url;
+      a.click();
       showToast('Obsidianに書き出しました');
       if (confirm('ログをクリアしますか？')) {
         const ids = entries.map(e => e.id);
