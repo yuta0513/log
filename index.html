@@ -117,8 +117,6 @@
       gap: 8px;
     }
 
-    .action-row.hidden { display: none; }
-
     .action-btn {
       flex: 1;
       height: 40px;
@@ -128,27 +126,30 @@
       font-weight: 500;
       cursor: pointer;
       transition: opacity 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .action-btn:active { opacity: 0.6; }
 
     .copy-btn {
-      background: #2a2a2a;
-      color: var(--fg);
-      border: 1px solid #383838;
+      background: #303030;
+      color: #ccc;
+      border: 1px solid #444;
     }
 
     .obsidian-btn {
-      background: #2a2a2a;
-      color: #a78bfa;
-      border: 1px solid #3a3050;
+      background: #2d2540;
+      color: #c4b5fd;
+      border: 1px solid #5b4b8a;
       display: none; /* Mac only — shown via JS */
     }
 
     .clear-btn {
-      background: transparent;
-      color: var(--danger);
-      border: 1px solid #3a2020;
+      background: #2a1a1a;
+      color: #ff6b6b;
+      border: 1px solid #5a2a2a;
     }
 
     .sync-status {
@@ -187,7 +188,7 @@
   <div class="log-scroll" id="logList"></div>
 
   <div class="bottom">
-    <div class="action-row hidden" id="actionRow">
+    <div class="action-row" id="actionRow">
       <button class="action-btn copy-btn"     id="copyBtn">コピー</button>
       <button class="action-btn obsidian-btn" id="obsidianBtn">Obsidian</button>
       <button class="action-btn clear-btn"    id="clearBtn">クリア</button>
@@ -286,7 +287,6 @@
     function renderAll() {
       logList.innerHTML = '';
       entries.forEach(renderItem);
-      actionRow.classList.toggle('hidden', entries.length === 0);
       scrollBottom();
     }
 
