@@ -18,7 +18,6 @@
       --fg:        #f0f0f0;
       --muted:     #666;
       --border:    #2e2e2e;
-      --accent:    #f0f0f0;
       --danger:    #ff453a;
     }
 
@@ -32,7 +31,6 @@
       overflow: hidden;
     }
 
-    /* ── Log scroll area ── */
     .log-scroll {
       flex: 1;
       overflow-y: auto;
@@ -43,7 +41,6 @@
       gap: 16px;
     }
 
-    /* Empty state — push content to bottom so logs grow upward */
     .log-scroll::before {
       content: '';
       flex: 1;
@@ -69,7 +66,6 @@
       color: var(--fg);
     }
 
-    /* ── Bottom fixed area ── */
     .bottom {
       flex-shrink: 0;
       padding: 10px 20px max(env(safe-area-inset-bottom), 16px);
@@ -78,7 +74,6 @@
       gap: 10px;
     }
 
-    /* ── Input row ── */
     .input-row {
       display: flex;
       align-items: flex-end;
@@ -103,9 +98,7 @@
       caret-color: var(--fg);
     }
 
-    textarea::placeholder {
-      color: var(--muted);
-    }
+    textarea::placeholder { color: var(--muted); }
 
     .send-btn {
       background: none;
@@ -120,19 +113,14 @@
       transition: color 0.15s;
     }
 
-    .send-btn.active {
-      color: var(--fg);
-    }
+    .send-btn.active { color: var(--fg); }
 
-    /* ── Action buttons ── */
     .action-row {
       display: flex;
       gap: 10px;
     }
 
-    .action-row.hidden {
-      display: none;
-    }
+    .action-row.hidden { display: none; }
 
     .action-btn {
       flex: 1;
@@ -159,7 +147,6 @@
       border: 1px solid #3a2020;
     }
 
-    /* ── Toast ── */
     .toast {
       position: fixed;
       bottom: 120px;
@@ -179,6 +166,15 @@
     .toast.show {
       opacity: 1;
       transform: translateX(-50%) translateY(0);
+    }
+
+    .status {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      padding: 4px 0 0;
+      letter-spacing: 0.02em;
+      min-height: 16px;
     }
   </style>
 </head>
@@ -200,12 +196,28 @@
         </svg>
       </button>
     </div>
+    <div class="status" id="status"></div>
   </div>
 
   <div class="toast" id="toast">コピーしました</div>
 
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
   <script>
-    const STORAGE_KEY = 'log_entries';
+    const firebaseConfig = {
+      apiKey: "AIzaSyDi-IgAIU9ZD_ahESxqeDD5sJLOYO8HVz4",
+      authDomain: "logmemo-b0ad6.firebaseapp.com",
+      projectId: "logmemo-b0ad6",
+      storageBucket: "logmemo-b0ad6.firebasestorage.app",
+      messagingSenderId: "931963988486",
+      appId: "1:931963988486:web:3cfb62d710bb8742c8f187"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const logsCol = db.collection('logs');
 
     const inputEl   = document.getElementById('input');
     const sendBtn   = document.getElementById('sendBtn');
@@ -214,11 +226,12 @@
     const copyBtn   = document.getElementById('copyBtn');
     const clearBtn  = document.getElementById('clearBtn');
     const toast     = document.getElementById('toast');
+    const statusEl  = document.getElementById('status');
 
-    let entries = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    let entries = [];
 
-    function formatTime(iso) {
-      const d = new Date(iso);
+    function formatTime(ts) {
+      const d = ts?.toDate ? ts.toDate() : new Date(ts);
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const dd = String(d.getDate()).padStart(2, '0');
       const hh = String(d.getHours()).padStart(2, '0');
@@ -226,13 +239,9 @@
       return `${mm}/${dd} ${hh}:${mi}`;
     }
 
-    function save() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-    }
-
     function renderAll() {
       logList.innerHTML = '';
-      entries.forEach(renderItem);
+      entries.forEach(e => renderItem(e));
       actionRow.classList.toggle('hidden', entries.length === 0);
       scrollBottom();
     }
@@ -240,6 +249,7 @@
     function renderItem(entry) {
       const item = document.createElement('div');
       item.className = 'log-item';
+      item.dataset.id = entry.id;
 
       const time = document.createElement('span');
       time.className = 'log-time';
@@ -258,6 +268,17 @@
       logList.scrollTop = logList.scrollHeight;
     }
 
+    // Real-time listener
+    statusEl.textContent = '接続中…';
+    logsCol.orderBy('ts', 'asc').onSnapshot(snapshot => {
+      entries = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderAll();
+      statusEl.textContent = '';
+    }, err => {
+      statusEl.textContent = '接続エラー';
+      console.error(err);
+    });
+
     // Auto-resize
     inputEl.addEventListener('input', () => {
       inputEl.style.height = 'auto';
@@ -266,20 +287,18 @@
     });
 
     // Submit
-    function submit() {
+    async function submit() {
       const text = inputEl.value.trim();
       if (!text) return;
-
-      const entry = { id: Date.now(), ts: new Date().toISOString(), text };
-      entries.push(entry);
-      save();
-      renderItem(entry);
-      actionRow.classList.remove('hidden');
-      scrollBottom();
 
       inputEl.value = '';
       inputEl.style.height = 'auto';
       sendBtn.classList.remove('active');
+
+      await logsCol.add({
+        text,
+        ts: firebase.firestore.FieldValue.serverTimestamp()
+      });
     }
 
     sendBtn.addEventListener('click', submit);
@@ -297,11 +316,12 @@
     });
 
     // Clear
-    clearBtn.addEventListener('click', () => {
+    clearBtn.addEventListener('click', async () => {
       if (!confirm('全て削除しますか？')) return;
-      entries = [];
-      save();
-      renderAll();
+      const batch = db.batch();
+      const snap = await logsCol.get();
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
     });
 
     // Toast
@@ -312,7 +332,6 @@
       toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
     }
 
-    renderAll();
     inputEl.focus();
   </script>
 </body>
