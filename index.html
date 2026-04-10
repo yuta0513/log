@@ -245,13 +245,13 @@
     async function saveHandle(h) {
       const db = await openIDB();
       const tx = db.transaction('handles', 'readwrite');
-      tx.objectStore('handles').put(h, 'obsidian');
+      tx.objectStore('handles').put(h, 'obsidian-v2');
       return new Promise(r => { tx.oncomplete = r; });
     }
     async function loadHandle() {
       const db = await openIDB();
       const tx = db.transaction('handles', 'readonly');
-      const req = tx.objectStore('handles').get('obsidian');
+      const req = tx.objectStore('handles').get('obsidian-v2');
       return new Promise(r => { req.onsuccess = () => r(req.result || null); });
     }
     if (isMac) loadHandle().then(h => { if (h) obsidianFileHandle = h; }).catch(() => {});
