@@ -391,17 +391,19 @@
       if (entries.length === 0) { showToast('ログがありません'); return; }
       const lines = entries.map(e => `- [${formatTime(e.ts)}] ${e.text}`).join('\n');
       const url = `obsidian://new?vault=${encodeURIComponent(OBS_VAULT)}&file=${encodeURIComponent(OBS_FILE)}&content=${encodeURIComponent('\n' + lines + '\n')}&append=true`;
-      window.location.href = url;
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = url;
+      document.body.appendChild(iframe);
+      setTimeout(() => iframe.remove(), 1000);
       showToast('Obsidianに書き出しました');
-      setTimeout(() => {
-        if (confirm('ログをクリアしますか？')) {
-          const ids = entries.map(e => e.id);
-          entries = [];
-          localStorage.removeItem(CACHE_KEY);
-          renderAll();
-          deleteAllEntries(ids).catch(e => console.error('delete failed:', e));
-        }
-      }, 500);
+      if (confirm('ログをクリアしますか？')) {
+        const ids = entries.map(e => e.id);
+        entries = [];
+        localStorage.removeItem(CACHE_KEY);
+        renderAll();
+        deleteAllEntries(ids).catch(e => console.error('delete failed:', e));
+      }
     });
 
     // ── Clear ─────────────────────────────────────────────────
