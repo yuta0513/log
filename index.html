@@ -359,10 +359,22 @@
     }
 
     sendBtn.addEventListener('click', submit);
+    // IME確定（compositionend）後にEnterだった場合も送信
+    let enterDuringComposition = false;
     inputEl.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-        e.preventDefault();
-        submit();
+      if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.isComposing) {
+          enterDuringComposition = true; // IME確定Enterを記録
+        } else {
+          e.preventDefault();
+          submit();
+        }
+      }
+    });
+    inputEl.addEventListener('compositionend', () => {
+      if (enterDuringComposition) {
+        enterDuringComposition = false;
+        submit(); // 確定と同時に送信
       }
     });
 
