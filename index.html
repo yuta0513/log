@@ -193,7 +193,7 @@
       <button class="action-btn clear-btn"    id="clearBtn">クリア</button>
     </div>
     <div class="input-row">
-      <textarea id="input" placeholder="メモ" rows="1" autofocus></textarea>
+      <textarea id="input" placeholder="メモ" rows="1" autofocus autocomplete="off" autocorrect="off"></textarea>
       <button class="send-btn" id="sendBtn" aria-label="送信">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.5"/>
@@ -341,8 +341,14 @@
       const text = inputEl.value.trim();
       if (!text) return;
 
+      // 確実にクリア
       inputEl.value = '';
-      inputEl.style.height = 'auto';
+      inputEl.blur();
+      requestAnimationFrame(() => {
+        inputEl.value = '';
+        inputEl.style.height = 'auto';
+        inputEl.focus();
+      });
       sendBtn.classList.remove('active');
 
       // Optimistic render
