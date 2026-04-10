@@ -227,47 +227,9 @@
 
     // ── State ─────────────────────────────────────────────────
     let entries = [];
-    let obsidianFileHandle = null;
-
-    // Mac判定 (File System Access API が使える環境)
-    const isMac = /Macintosh/.test(navigator.userAgent) && 'showOpenFilePicker' in window;
-    if (isMac) obsidianBtn.style.display = 'flex';
-
-    // ── IndexedDB for persisting file handle ──────────────────
-    const IDB_NAME = 'logmemo', IDB_STORE = 'handles', IDB_KEY = 'obsidian';
-
-    function openIDB() {
-      return new Promise((res, rej) => {
-        const req = indexedDB.open(IDB_NAME, 1);
-        req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
-        req.onsuccess = e => res(e.target.result);
-        req.onerror   = e => rej(e.target.error);
-      });
-    }
-
-    async function saveHandle(handle) {
-      const db = await openIDB();
-      return new Promise((res, rej) => {
-        const tx = db.transaction(IDB_STORE, 'readwrite');
-        tx.objectStore(IDB_STORE).put(handle, IDB_KEY);
-        tx.oncomplete = res; tx.onerror = e => rej(e.target.error);
-      });
-    }
-
-    async function loadHandle() {
-      const db = await openIDB();
-      return new Promise((res, rej) => {
-        const tx = db.transaction(IDB_STORE, 'readonly');
-        const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
-        req.onsuccess = e => res(e.target.result || null);
-        req.onerror   = e => rej(e.target.error);
-      });
-    }
-
-    // 起動時に保存済みハンドルを復元
-    if (isMac) {
-      loadHandle().then(h => { if (h) obsidianFileHandle = h; }).catch(() => {});
-    }
+    // Mac/デスクトップ判定（Obsidianボタン表示）
+    const isDesktop = !/iPhone|iPad|Android/.test(navigator.userAgent);
+    if (isDesktop) obsidianBtn.style.display = 'flex';
 
     // ── Firestore REST helpers ────────────────────────────────
     function docToEntry(doc) {
@@ -421,26 +383,17 @@
     });
 
     // ── Obsidian export (Mac only) ────────────────────────────
-    obsidianBtn.addEventListener('click', async () => {
-      try {
-        if (!obsidianFileHandle) {
-          [obsidianFileHandle] = await window.showOpenFilePicker({
-            types: [{ description: 'Markdown', accept: { 'text/markdown': ['.md'] } }],
-            startIn: 'documents'
-          });
-          await saveHandle(obsidianFileHandle);
-        }
-        // 権限が切れていたら再取得
-        if ((await obsidianFileHandle.queryPermission({ mode: 'readwrite' })) !== 'granted') {
-          await obsidianFileHandle.requestPermission({ mode: 'readwrite' });
-        }
-        const file     = await obsidianFileHandle.getFile();
-        const existing = await file.text();
-        const newLines = entries.map(e => `- [${formatTime(e.ts)}] ${e.text}`).join('\n');
-        const writable = await obsidianFileHandle.createWritable();
-        await writable.write(existing.trimEnd() + '\n\n' + newLines + '\n');
-        await writable.close();
-        showToast('Obsidianに書き出しました');
+    // ── Obsidian URI scheme (ピッカー不要・固定パス) ─────────
+    const OBS_VAULT = 'buffer';
+    const OBS_FILE  = 'inbox';
+
+    obsidianBtn.addEventListener('click', () => {
+      if (entries.length === 0) { showToast('ログがありません'); return; }
+      const lines = entries.map(e => `- [${formatTime(e.ts)}] ${e.text}`).join('\n');
+      const url = `obsidian://new?vault=${encodeURIComponent(OBS_VAULT)}&file=${encodeURIComponent(OBS_FILE)}&content=${encodeURIComponent('\n' + lines + '\n')}&append=true`;
+      window.location.href = url;
+      showToast('Obsidianに書き出しました');
+      setTimeout(() => {
         if (confirm('ログをクリアしますか？')) {
           const ids = entries.map(e => e.id);
           entries = [];
@@ -448,9 +401,7 @@
           renderAll();
           deleteAllEntries(ids).catch(e => console.error('delete failed:', e));
         }
-      } catch (e) {
-        if (e.name !== 'AbortError') showToast('書き出し失敗');
-      }
+      }, 500);
     });
 
     // ── Clear ─────────────────────────────────────────────────
