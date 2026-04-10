@@ -167,15 +167,6 @@
       opacity: 1;
       transform: translateX(-50%) translateY(0);
     }
-
-    .status {
-      font-size: 11px;
-      color: var(--muted);
-      text-align: center;
-      padding: 4px 0 0;
-      letter-spacing: 0.02em;
-      min-height: 16px;
-    }
   </style>
 </head>
 <body>
@@ -188,7 +179,7 @@
       <button class="action-btn clear-btn" id="clearBtn">クリア</button>
     </div>
     <div class="input-row">
-      <textarea id="input" placeholder="メモ" rows="1" autofocus>
+      <textarea id="input" placeholder="メモ" rows="1" autofocus></textarea>
       <button class="send-btn" id="sendBtn" aria-label="送信">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.5"/>
@@ -196,28 +187,12 @@
         </svg>
       </button>
     </div>
-    <div class="status" id="status"></div>
   </div>
 
   <div class="toast" id="toast">コピーしました</div>
 
-  <!-- Firebase SDK -->
-  <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/firebase-app-compat.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/firebase@10.12.0/firebase-firestore-compat.min.js"></script>
-
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyDi-IgAIU9ZD_ahESxqeDD5sJLOYO8HVz4",
-      authDomain: "logmemo-b0ad6.firebaseapp.com",
-      projectId: "logmemo-b0ad6",
-      storageBucket: "logmemo-b0ad6.firebasestorage.app",
-      messagingSenderId: "931963988486",
-      appId: "1:931963988486:web:3cfb62d710bb8742c8f187"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const logsCol = db.collection('logs');
+    const STORAGE_KEY = 'log_entries';
 
     const inputEl   = document.getElementById('input');
     const sendBtn   = document.getElementById('sendBtn');
@@ -226,12 +201,11 @@
     const copyBtn   = document.getElementById('copyBtn');
     const clearBtn  = document.getElementById('clearBtn');
     const toast     = document.getElementById('toast');
-    const statusEl  = document.getElementById('status');
 
-    let entries = [];
+    let entries = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 
-    function formatTime(ts) {
-      const d = ts?.toDate ? ts.toDate() : new Date(ts);
+    function formatTime(iso) {
+      const d = new Date(iso);
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const dd = String(d.getDate()).padStart(2, '0');
       const hh = String(d.getHours()).padStart(2, '0');
@@ -239,9 +213,13 @@
       return `${mm}/${dd} ${hh}:${mi}`;
     }
 
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    }
+
     function renderAll() {
       logList.innerHTML = '';
-      entries.forEach(e => renderItem(e));
+      entries.forEach(renderItem);
       actionRow.classList.toggle('hidden', entries.length === 0);
       scrollBottom();
     }
@@ -249,7 +227,6 @@
     function renderItem(entry) {
       const item = document.createElement('div');
       item.className = 'log-item';
-      item.dataset.id = entry.id;
 
       const time = document.createElement('span');
       time.className = 'log-time';
@@ -268,37 +245,26 @@
       logList.scrollTop = logList.scrollHeight;
     }
 
-    // Real-time listener
-    statusEl.textContent = '接続中…';
-    logsCol.orderBy('ts', 'asc').onSnapshot(snapshot => {
-      entries = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderAll();
-      statusEl.textContent = '';
-    }, err => {
-      statusEl.textContent = '接続エラー';
-      console.error(err);
-    });
-
-    // Auto-resize
     inputEl.addEventListener('input', () => {
       inputEl.style.height = 'auto';
       inputEl.style.height = inputEl.scrollHeight + 'px';
       sendBtn.classList.toggle('active', inputEl.value.trim().length > 0);
     });
 
-    // Submit
-    async function submit() {
+    function submit() {
       const text = inputEl.value.trim();
       if (!text) return;
+
+      const entry = { id: Date.now(), ts: new Date().toISOString(), text };
+      entries.push(entry);
+      save();
+      renderItem(entry);
+      actionRow.classList.remove('hidden');
+      scrollBottom();
 
       inputEl.value = '';
       inputEl.style.height = 'auto';
       sendBtn.classList.remove('active');
-
-      await logsCol.add({
-        text,
-        ts: firebase.firestore.FieldValue.serverTimestamp()
-      });
     }
 
     sendBtn.addEventListener('click', submit);
@@ -309,22 +275,18 @@
       }
     });
 
-    // Copy
     copyBtn.addEventListener('click', () => {
       const text = entries.map(e => `[${formatTime(e.ts)}] ${e.text}`).join('\n');
       navigator.clipboard.writeText(text).then(showToast);
     });
 
-    // Clear
-    clearBtn.addEventListener('click', async () => {
+    clearBtn.addEventListener('click', () => {
       if (!confirm('全て削除しますか？')) return;
-      const batch = db.batch();
-      const snap = await logsCol.get();
-      snap.docs.forEach(d => batch.delete(d.ref));
-      await batch.commit();
+      entries = [];
+      save();
+      renderAll();
     });
 
-    // Toast
     let toastTimer;
     function showToast() {
       toast.classList.add('show');
@@ -332,6 +294,7 @@
       toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
     }
 
+    renderAll();
     inputEl.focus();
   </script>
 </body>
