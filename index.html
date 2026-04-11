@@ -60,6 +60,61 @@
       line-height: 1.6;
       white-space: pre-wrap;
       word-break: break-word;
+      cursor: pointer;
+      border-radius: 6px;
+      padding: 2px 4px;
+      margin: -2px -4px;
+      transition: background 0.15s;
+    }
+
+    .log-text:hover {
+      background: rgba(255,255,255,0.05);
+    }
+
+    .log-edit {
+      font-size: 16px;
+      line-height: 1.5;
+      font-family: inherit;
+      color: var(--fg);
+      background: var(--surface);
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 6px 8px;
+      width: 100%;
+      resize: none;
+      outline: none;
+      overflow-y: auto;
+      max-height: 120px;
+    }
+
+    .edit-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .edit-actions button {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .edit-save {
+      background: #2d4a2d;
+      color: #8eda8e;
+    }
+
+    .edit-cancel {
+      background: #333;
+      color: #aaa;
+    }
+
+    .edit-delete {
+      background: #2a1a1a;
+      color: #ff6b6b;
+      margin-left: auto;
     }
 
     .bottom {
@@ -292,6 +347,22 @@
       return docToEntry(await res.json());
     }
 
+    async function updateEntry(id, newText) {
+      const res = await fetch(`${BASE_URL}/${id}?key=${API_KEY}&updateMask.fieldPaths=text`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fields: { text: { stringValue: newText } }
+        })
+      });
+      if (!res.ok) throw new Error(`update failed: ${res.status}`);
+    }
+
+    async function deleteEntry(id) {
+      const res = await fetch(`${BASE_URL}/${id}?key=${API_KEY}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`delete failed: ${res.status}`);
+    }
+
     async function deleteAllEntries(ids) {
       await Promise.all(ids.map(id =>
         fetch(`${BASE_URL}/${id}?key=${API_KEY}`, { method: 'DELETE' })
@@ -327,9 +398,95 @@
       text.className = 'log-text';
       text.textContent = entry.text;
 
+      text.addEventListener('click', () => startEdit(item, entry));
+
       item.appendChild(time);
       item.appendChild(text);
       logList.appendChild(item);
+    }
+
+    function startEdit(item, entry) {
+      if (item.querySelector('.log-edit')) return;
+      const textEl = item.querySelector('.log-text');
+      textEl.style.display = 'none';
+
+      const textarea = document.createElement('textarea');
+      textarea.className = 'log-edit';
+      textarea.value = entry.text;
+      textarea.rows = 1;
+
+      const actions = document.createElement('div');
+      actions.className = 'edit-actions';
+
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'edit-save';
+      saveBtn.textContent = '保存';
+      saveBtn.type = 'button';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'edit-cancel';
+      cancelBtn.textContent = 'キャンセル';
+      cancelBtn.type = 'button';
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'edit-delete';
+      delBtn.textContent = '削除';
+      delBtn.type = 'button';
+
+      actions.appendChild(saveBtn);
+      actions.appendChild(cancelBtn);
+      actions.appendChild(delBtn);
+      item.appendChild(textarea);
+      item.appendChild(actions);
+
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+      textarea.focus();
+
+      const cancel = () => {
+        textarea.remove();
+        actions.remove();
+        textEl.style.display = '';
+      };
+
+      cancelBtn.addEventListener('click', cancel);
+
+      saveBtn.addEventListener('click', async () => {
+        const newText = textarea.value.trim();
+        if (!newText || newText === entry.text) { cancel(); return; }
+        saveBtn.disabled = true;
+        try {
+          await updateEntry(entry.id, newText);
+          entry.text = newText;
+          textEl.textContent = newText;
+          cancel();
+          localStorage.setItem(CACHE_KEY, JSON.stringify(entries));
+          showToast('保存しました');
+        } catch (e) {
+          showToast('保存失敗');
+          saveBtn.disabled = false;
+        }
+      });
+
+      delBtn.addEventListener('click', async () => {
+        if (!confirm('この項目を削除しますか？')) return;
+        delBtn.disabled = true;
+        try {
+          await deleteEntry(entry.id);
+          entries = entries.filter(e => e.id !== entry.id);
+          localStorage.setItem(CACHE_KEY, JSON.stringify(entries));
+          renderAll();
+          showToast('削除しました');
+        } catch (e) {
+          showToast('削除失敗');
+          delBtn.disabled = false;
+        }
+      });
+
+      textarea.addEventListener('input', () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+      });
     }
 
     function scrollBottom() {
