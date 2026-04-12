@@ -208,6 +208,23 @@
       border: 1px solid #5a2a2a;
     }
 
+    .obsidian-path {
+      font-size: 11px;
+      color: #8b7bbf;
+      text-align: center;
+      cursor: pointer;
+      padding: 2px 0;
+      display: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .obsidian-path:hover {
+      color: #c4b5fd;
+      text-decoration: underline;
+    }
+
     .sync-status {
       font-size: 11px;
       color: var(--muted);
@@ -249,6 +266,7 @@
       <button class="action-btn obsidian-btn" id="obsidianBtn">Obsidian</button>
       <button class="action-btn clear-btn"    id="clearBtn">クリア</button>
     </div>
+    <div class="obsidian-path" id="obsidianPath"></div>
     <div class="input-row">
       <textarea id="input" placeholder="メモ" rows="1" autofocus autocomplete="off" autocorrect="off"></textarea>
       <button class="send-btn" id="sendBtn" type="button" aria-label="送信">
@@ -280,6 +298,7 @@
     const clearBtn     = document.getElementById('clearBtn');
     const syncStatus   = document.getElementById('syncStatus');
     const toastEl      = document.getElementById('toast');
+    const obsidianPath = document.getElementById('obsidianPath');
 
     // ── State ─────────────────────────────────────────────────
     let entries = [];
@@ -310,7 +329,37 @@
       const req = tx.objectStore('handles').get('obsidian-v2');
       return new Promise(r => { req.onsuccess = () => r(req.result || null); });
     }
-    if (isMac) loadHandle().then(h => { if (h) obsidianFileHandle = h; }).catch(() => {});
+    function updatePathDisplay() {
+      if (obsidianFileHandle) {
+        obsidianPath.textContent = '📂 ' + obsidianFileHandle.name;
+        obsidianPath.style.display = 'block';
+      } else {
+        obsidianPath.textContent = '未設定 — タップして選択';
+        obsidianPath.style.display = isMac ? 'block' : 'none';
+      }
+    }
+
+    if (isMac) {
+      loadHandle().then(h => {
+        if (h) obsidianFileHandle = h;
+        updatePathDisplay();
+      }).catch(() => updatePathDisplay());
+    }
+
+    // 保存先をタップで変更
+    obsidianPath.addEventListener('click', async () => {
+      try {
+        [obsidianFileHandle] = await window.showOpenFilePicker({
+          types: [{ description: 'Markdown', accept: { 'text/markdown': ['.md'] } }],
+          startIn: 'documents'
+        });
+        await saveHandle(obsidianFileHandle);
+        updatePathDisplay();
+        showToast('保存先を変更しました');
+      } catch (e) {
+        if (e.name !== 'AbortError') showToast('選択に失敗しました');
+      }
+    });
 
     // ── Firestore REST helpers ────────────────────────────────
     function docToEntry(doc) {
